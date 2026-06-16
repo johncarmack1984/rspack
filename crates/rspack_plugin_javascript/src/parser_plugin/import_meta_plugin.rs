@@ -292,9 +292,11 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         // - Skip `dirname` and `filename` - they are handled by NodeStuffPlugin
         //   and may have runtime values when node.__dirname/node.__filename is false
         // - Skip `main` - it will generate dynamic code: `moduleCache[entryModuleId] === module`
+        // - Skip `env` - it is handled by DefinePlugin (import.meta.env)
         if ident.sym == "dirname"
           || ident.sym == "filename"
           || ident.sym == "main"
+          || ident.sym == "env"
           || (ident.sym == "rspackRsc" && is_rsc_layer(parser))
           || import_meta_runtime_api_from_property(ident.sym.as_ref()).is_some()
         {
@@ -312,6 +314,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
             value == "dirname"
               || value == "filename"
               || value == "main"
+              || value == "env"
               || (value == "rspackRsc" && is_rsc_layer(parser))
               || import_meta_runtime_api_from_property(value).is_some()
           })
