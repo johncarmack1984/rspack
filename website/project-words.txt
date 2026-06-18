@@ -43,6 +43,7 @@ devserverhot
 devserverwebsocketserver
 dhruvkelawala
 disabletransformbydefault
+dotenv
 ecma
 edusperoni
 elecmonkey
