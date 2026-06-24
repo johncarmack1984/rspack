@@ -41,8 +41,9 @@ Last updated: YYYY-MM-DD HH:mm:ss Z
 6. Classify each missing feature into one of these recommendation buckets:
    - Recommended to implement in Rspack: gaps in config or plugin functionality that Rspack already exposes, or features that need native Rust/compiler integration for correctness or performance.
    - Pending evaluation: gaps where the right home is unclear, or where webpack support may be experimental, low priority, or partially covered by existing Rspack/Rsbuild behavior.
-   - Not recommended to implement in Rspack: plugin or integration features that can be implemented outside Rspack without native Rust work or performance impact; prefer a third-party package or an independent plugin under https://github.com/rstackjs when the compatibility layer should be maintained by the Rstack ecosystem.
-7. Before marking a feature as not recommended or pending, inspect the corresponding webpack feature or plugin implementation. Check whether Rsbuild already provides a solution, and whether https://github.com/rstackjs already has a compatible package or plugin.
+   - No implementation needed: webpack compatibility surfaces that Rspack/Rsbuild already cover through a different recommended path, or webpack experiments/features that are not worth matching as first-class Rspack API.
+   - Recommended as an independent Rstack plugin: plugin or integration compatibility features that can be implemented outside Rspack without native Rust work or performance impact; prefer an independent plugin under https://github.com/rstackjs when the compatibility layer should be maintained by the Rstack ecosystem.
+7. Before marking a feature as pending, no implementation needed, or an independent Rstack plugin candidate, inspect the corresponding webpack feature or plugin implementation. Check whether Rsbuild already provides a solution, and whether https://github.com/rstackjs already has a compatible package or plugin.
 8. If the gap is native CSS-related, record it in #14002 instead of #14556.
 9. For missing tests:
    - If a missing webpack test maps clearly to a tracked feature gap or a specific PR gap, mention it under that feature instead of adding it to the standalone missing-test comment.
@@ -67,7 +68,7 @@ Use concise checklist entries. Prefer one feature or test group per item.
 Missing feature entry:
 
 ```markdown
-- [ ] `<feature or option>` - Short compatibility note. Recommendation: recommended/pending/not recommended, with a short reason. Source: webpack release/config/PR link.
+- [ ] `<feature or option>` - Short compatibility note. **Recommendation:** recommended/pending/no implementation needed/rstack plugin, with a short reason. Source: webpack release/config/PR link.
 ```
 
 Completed feature entry:
