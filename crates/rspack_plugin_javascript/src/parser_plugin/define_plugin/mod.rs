@@ -110,8 +110,12 @@ async fn collect_import_meta_env_definitions(
       .entry(compilation.id())
       .or_default();
     for (key, value) in &self.walk_data.import_meta_env_definitions {
-      definitions.definitions.insert(key.clone(), value.clone());
-      definitions.serialized = None;
+      if let std::collections::hash_map::Entry::Vacant(entry) =
+        definitions.definitions.entry(key.clone())
+      {
+        entry.insert(value.clone());
+        definitions.serialized = None;
+      }
     }
   }
   for (key, value) in self.walk_data.tiling_definitions.iter() {

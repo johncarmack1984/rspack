@@ -247,11 +247,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     for_name: &str,
   ) -> Option<eval::BasicEvaluatedExpression<'a>> {
     let mut evaluated = None;
-    if for_name == expr_name::IMPORT_META
-      || (experiments_env_enabled(parser)
-        && (expr.arg.as_member().is_some_and(is_import_meta_env_member)
-          || for_name == expr_name::IMPORT_META_ENV))
-    {
+    if for_name == expr_name::IMPORT_META {
       evaluated = Some("object".to_string());
     } else if for_name == expr_name::IMPORT_META_URL {
       evaluated = Some("string".to_string());
@@ -264,6 +260,8 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     } else if for_name == expr_name::IMPORT_META_MAIN {
       evaluated = Some("boolean".to_string())
     } else if for_name == expr_name::IMPORT_META_RSPACK_RSC && is_rsc_layer(parser) {
+      evaluated = Some("object".to_string())
+    } else if experiments_env_enabled(parser) && for_name == expr_name::IMPORT_META_ENV {
       evaluated = Some("object".to_string())
     } else if let Some(api) = import_meta_runtime_api_from_name(for_name) {
       evaluated = Some(api.type_of.to_string())
@@ -375,21 +373,6 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     unary_expr: &UnaryExpr,
     for_name: &str,
   ) -> Option<bool> {
-    if experiments_env_enabled(parser)
-      && (unary_expr
-        .arg
-        .as_member()
-        .is_some_and(is_import_meta_env_member)
-        || for_name == expr_name::IMPORT_META_ENV)
-    {
-      add_import_meta_env_value_dependency(parser);
-      parser.add_presentational_dependency(Box::new(ConstDependency::new(
-        unary_expr.span().into(),
-        "'object'".into(),
-      )));
-      return Some(true);
-    }
-
     match for_name {
       expr_name::IMPORT_META => {
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
@@ -425,6 +408,14 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
           unary_expr.span().into(),
           "'boolean'".into(),
+        )));
+        Some(true)
+      }
+      expr_name::IMPORT_META_ENV if experiments_env_enabled(parser) => {
+        add_import_meta_env_value_dependency(parser);
+        parser.add_presentational_dependency(Box::new(ConstDependency::new(
+          unary_expr.span().into(),
+          "'object'".into(),
         )));
         Some(true)
       }

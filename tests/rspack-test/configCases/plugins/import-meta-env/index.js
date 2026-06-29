@@ -13,6 +13,12 @@ it("should expose variables from DefinePlugin", () => {
 	expect(env.CUSTOM_VAR).toBe("custom_value");
 });
 
+it("should keep direct access and object replacement consistent for duplicate definitions", () => {
+	const env = import.meta.env;
+	expect(import.meta.env.ORDERED_VAR).toBe("first_define_plugin");
+	expect(env.ORDERED_VAR).toBe(import.meta.env.ORDERED_VAR);
+});
+
 it("should not mirror import.meta.env definitions to process.env", () => {
 	const env = import.meta.env;
 	expect(env.ONLY_IMPORT_META).toBe("only_import_meta");

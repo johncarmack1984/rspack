@@ -18,6 +18,10 @@ module.exports = {
     new DefinePlugin({
       'import.meta.env.CUSTOM_VAR': JSON.stringify('custom_value'),
       'import.meta.env.ONLY_IMPORT_META': JSON.stringify('only_import_meta'),
+      'import.meta.env.ORDERED_VAR': JSON.stringify('first_define_plugin'),
+    }),
+    new DefinePlugin({
+      'import.meta.env.ORDERED_VAR': JSON.stringify('second_define_plugin'),
     }),
   ],
 };
