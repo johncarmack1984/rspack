@@ -220,6 +220,21 @@ fn is_rsc_layer(parser: &JavascriptParser) -> bool {
     .is_some_and(|layer| layer == "react-server-components")
 }
 
+fn should_evaluate_import_meta_property_as_object(
+  parser: &JavascriptParser,
+  for_name: &str,
+) -> bool {
+  if for_name == expr_name::IMPORT_META_RSPACK_RSC {
+    return is_rsc_layer(parser);
+  }
+
+  if for_name == expr_name::IMPORT_META_ENV {
+    return experiments_env_enabled(parser);
+  }
+
+  false
+}
+
 fn mark_import_meta_rsc_used(parser: &mut JavascriptParser) {
   match parser.build_info.rsc.as_mut() {
     Some(rsc) => {
@@ -259,9 +274,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
       evaluated = Some("number".to_string())
     } else if for_name == expr_name::IMPORT_META_MAIN {
       evaluated = Some("boolean".to_string())
-    } else if for_name == expr_name::IMPORT_META_RSPACK_RSC && is_rsc_layer(parser) {
-      evaluated = Some("object".to_string())
-    } else if experiments_env_enabled(parser) && for_name == expr_name::IMPORT_META_ENV {
+    } else if should_evaluate_import_meta_property_as_object(parser, for_name) {
       evaluated = Some("object".to_string())
     } else if let Some(api) = import_meta_runtime_api_from_name(for_name) {
       evaluated = Some(api.type_of.to_string())
