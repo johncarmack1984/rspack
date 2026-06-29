@@ -11,7 +11,10 @@ use rspack_core::{
 };
 use rspack_error::{Diagnostic, Error, Result};
 use rspack_hook::{plugin, plugin_hook};
-use rspack_util::fx_hash::{FxDashMap, FxHashMap};
+use rspack_util::{
+  fx_hash::{FxDashMap, FxHashMap},
+  json_stringify_str,
+};
 use serde_json::Value;
 
 use self::{utils::code_to_string, walk_data::WalkData};
@@ -68,10 +71,18 @@ pub(crate) fn serialize_import_meta_env_definitions(
   pairs.sort_unstable_by(|a, b| a.0.cmp(b.0));
   let content = pairs
     .into_iter()
-    .map(|(key, value)| format!("{}:{value}", rspack_util::json_stringify_str(key)))
+    .map(|(key, value)| format!("{}:{value}", stringify_import_meta_env_key(key)))
     .collect::<Vec<_>>()
     .join(",");
   format!("{{{content}}}")
+}
+
+fn stringify_import_meta_env_key(key: &str) -> String {
+  if key == "__proto__" {
+    format!("[{}]", json_stringify_str(key))
+  } else {
+    json_stringify_str(key)
+  }
 }
 
 pub(crate) fn remove_import_meta_env_definitions(compilation_id: CompilationId) {

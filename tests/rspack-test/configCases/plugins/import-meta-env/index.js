@@ -25,6 +25,18 @@ it("should not mirror import.meta.env definitions to process.env", () => {
 	expect(process.env.ONLY_IMPORT_META).not.toBe("only_import_meta");
 });
 
+it("should not collect user process.env definitions into import.meta.env", () => {
+	const env = import.meta.env;
+	expect(process.env.PROCESS_ONLY).toBe("process_only");
+	expect(env.PROCESS_ONLY).toBe(undefined);
+});
+
+it("should emit __proto__ env keys as own properties", () => {
+	const env = import.meta.env;
+	expect(Object.prototype.hasOwnProperty.call(env, "__proto__")).toBe(true);
+	expect(env.__proto__).toBe("proto_value");
+});
+
 it("should support typeof import.meta.env", () => {
 	expect(typeof import.meta.env).toBe("object");
 });

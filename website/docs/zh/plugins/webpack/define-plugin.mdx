@@ -194,7 +194,7 @@ console.log(import.meta.env.MODE); // 'production'
 console.log(import.meta.env.NOT_EXIST); // undefined
 ```
 
-通常你不需要手写这个 `DefinePlugin`。[`EnvironmentPlugin`](/plugins/webpack/environment-plugin) 以及用户 `DefinePlugin` 中的 `import.meta.env.*` / `process.env.*` 键，都会被收集到同一个累积的环境对象中，并自动以 `import.meta.env` 暴露。
+通常你不需要手写这个 `DefinePlugin`。[`EnvironmentPlugin`](/plugins/webpack/environment-plugin)、`NODE_ENV` 以及用户 `DefinePlugin` 中的 `import.meta.env.*` 键，会被收集到同一个累积的环境对象中，并自动以 `import.meta.env` 暴露。用户 `DefinePlugin` 中的 `process.env.*` 键会保持 `process.env` 的行为，不会被收集到 `import.meta.env`。
 
 ## `process.env`
 

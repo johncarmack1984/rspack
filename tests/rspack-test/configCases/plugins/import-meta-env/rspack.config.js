@@ -19,6 +19,8 @@ module.exports = {
       'import.meta.env.CUSTOM_VAR': JSON.stringify('custom_value'),
       'import.meta.env.ONLY_IMPORT_META': JSON.stringify('only_import_meta'),
       'import.meta.env.ORDERED_VAR': JSON.stringify('first_define_plugin'),
+      'import.meta.env.__proto__': JSON.stringify('proto_value'),
+      'process.env.PROCESS_ONLY': JSON.stringify('process_only'),
     }),
     new DefinePlugin({
       'import.meta.env.ORDERED_VAR': JSON.stringify('second_define_plugin'),
