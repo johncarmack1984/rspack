@@ -42,12 +42,15 @@ pub(crate) type ImportMetaEnvDefinitions = FxHashMap<String, Value>;
 #[derive(Debug, Default)]
 struct ImportMetaEnvDefinitionsState {
   definitions: ImportMetaEnvDefinitions,
+  has_object_definition: bool,
   serialized: Option<String>,
 }
 
 static IMPORT_META_ENV_DEFINITIONS_MAP: LazyLock<
   FxDashMap<CompilationId, ImportMetaEnvDefinitionsState>,
 > = LazyLock::new(Default::default);
+pub(crate) const IMPORT_META_ENV_OBJECT_VALUE_DEP_KEY: &str =
+  "rspack/DefinePlugin import.meta.env object definition";
 
 #[plugin]
 #[derive(Debug)]
@@ -109,6 +112,16 @@ pub(crate) fn has_import_meta_env_definition(compilation_id: CompilationId, name
     .is_some_and(|state| state.definitions.contains_key(name))
 }
 
+pub(crate) fn has_import_meta_env_object_definition(compilation_id: CompilationId) -> bool {
+  IMPORT_META_ENV_DEFINITIONS_MAP
+    .get(&compilation_id)
+    .is_some_and(|state| state.has_object_definition)
+}
+
+pub(crate) fn import_meta_env_object_definition_value(compilation_id: CompilationId) -> String {
+  has_import_meta_env_object_definition(compilation_id).to_string()
+}
+
 #[plugin_hook(CompilerCompilation for DefinePlugin, tracing=false)]
 async fn collect_import_meta_env_definitions(
   &self,
@@ -120,6 +133,7 @@ async fn collect_import_meta_env_definitions(
     let mut definitions = IMPORT_META_ENV_DEFINITIONS_MAP
       .entry(compilation.id())
       .or_default();
+    definitions.has_object_definition |= self.walk_data.has_import_meta_env_object_definition;
     for (key, value) in &self.walk_data.import_meta_env_definitions {
       if let std::collections::hash_map::Entry::Vacant(entry) =
         definitions.definitions.entry(key.clone())
@@ -171,6 +185,10 @@ async fn finalize_import_meta_env_definitions(
   compilation
     .value_cache_versions
     .insert(IMPORT_META_ENV_VALUE_DEP_KEY.to_string(), serialized);
+  compilation.value_cache_versions.insert(
+    IMPORT_META_ENV_OBJECT_VALUE_DEP_KEY.to_string(),
+    state.has_object_definition.to_string(),
+  );
 
   Ok(())
 }

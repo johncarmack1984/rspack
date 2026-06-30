@@ -21,8 +21,9 @@ use super::{
     render_import_meta_runtime_api_destructuring,
   },
   define_plugin::{
-    IMPORT_META_ENV_VALUE_DEP_KEY, has_import_meta_env_definition,
-    import_meta_env_definitions_string,
+    IMPORT_META_ENV_OBJECT_VALUE_DEP_KEY, IMPORT_META_ENV_VALUE_DEP_KEY,
+    has_import_meta_env_definition, has_import_meta_env_object_definition,
+    import_meta_env_definitions_string, import_meta_env_object_definition_value,
   },
 };
 use crate::{
@@ -41,6 +42,10 @@ fn add_import_meta_env_value_dependency(parser: &mut JavascriptParser) {
   parser.build_info.value_dependencies.insert(
     IMPORT_META_ENV_VALUE_DEP_KEY.to_string(),
     import_meta_env_definitions_string(parser.compilation_id),
+  );
+  parser.build_info.value_dependencies.insert(
+    IMPORT_META_ENV_OBJECT_VALUE_DEP_KEY.to_string(),
+    import_meta_env_object_definition_value(parser.compilation_id),
   );
 }
 
@@ -62,6 +67,11 @@ fn is_import_meta_env_member(member_expr: &MemberExpr) -> bool {
         .is_some_and(|str_lit| str_lit.value.as_str() == Some("env")),
       _ => false,
     }
+}
+
+fn has_import_meta_env_member_definition(parser: &JavascriptParser, name: &str) -> bool {
+  has_import_meta_env_definition(parser.compilation_id, name)
+    || has_import_meta_env_object_definition(parser.compilation_id)
 }
 
 fn create_import_meta_resolve_context_dependency(
@@ -621,7 +631,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     let name = members.get(1)?;
 
     add_import_meta_env_value_dependency(parser);
-    if has_import_meta_env_definition(parser.compilation_id, name.as_str()) {
+    if has_import_meta_env_member_definition(parser, name.as_str()) {
       return None;
     }
 
@@ -713,7 +723,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
           {
             add_import_meta_env_value_dependency(parser);
             if let Some(name) = members.members.get(1)
-              && !has_import_meta_env_definition(parser.compilation_id, name.as_str())
+              && !has_import_meta_env_member_definition(parser, name.as_str())
             {
               parser.add_presentational_dependency(Box::new(ConstDependency::new(
                 expr.span().into(),

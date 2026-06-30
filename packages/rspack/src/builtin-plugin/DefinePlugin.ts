@@ -1,14 +1,35 @@
 import { BuiltinPluginName } from '@rspack/binding';
 
 import { create } from './base';
+import WebpackError from '../lib/WebpackError';
 
-export type DefinePluginOptions = Record<string, CodeValue>;
+const IMPORT_META_ENV_KEY = 'import.meta.env';
+
+export type DefinePluginOptions = Record<string, CodeValue> & {
+  'import.meta.env'?: ImportMetaEnvCodeValue;
+};
 export const DefinePlugin = create(
   BuiltinPluginName.DefinePlugin,
   function (define: DefinePluginOptions): NormalizedCodeValue {
     const supportsBigIntLiteral =
       this.options.output.environment?.bigIntLiteral ?? false;
-    return normalizeValue(define, supportsBigIntLiteral);
+    const warnings: string[] = [];
+    const normalizedDefine = normalizeValue(
+      define,
+      supportsBigIntLiteral,
+      this.options.experiments.env ?? false,
+      warnings,
+    );
+    if (warnings.length > 0) {
+      this.hooks.thisCompilation.tap('DefinePlugin', (compilation) => {
+        for (const warning of warnings) {
+          const error = new WebpackError(warning);
+          error.name = 'DefinePluginImportMetaEnvWarning';
+          compilation.warnings.push(error);
+        }
+      });
+    }
+    return normalizedDefine;
   },
   'compilation',
 );
@@ -16,7 +37,21 @@ export const DefinePlugin = create(
 const normalizeValue = (
   define: DefinePluginOptions,
   supportsBigIntLiteral: boolean,
+  experimentsEnvEnabled: boolean,
+  warnings: string[],
 ) => {
+  let normalizedDefineInput: Record<string, CodeValue> = define;
+  if (
+    experimentsEnvEnabled &&
+    Object.prototype.hasOwnProperty.call(define, IMPORT_META_ENV_KEY)
+  ) {
+    normalizedDefineInput = { ...define };
+    normalizedDefineInput[IMPORT_META_ENV_KEY] = normalizeImportMetaEnvValue(
+      define[IMPORT_META_ENV_KEY],
+      warnings,
+    );
+  }
+
   const normalizePrimitive = (
     p: CodeValuePrimitive,
   ): NormalizedCodeValuePrimitive => {
@@ -53,10 +88,46 @@ const normalizeValue = (
     }
     return normalizePrimitive(define);
   };
-  return normalizeObject(define);
+  return normalizeObject(normalizedDefineInput);
 };
 
+const normalizeImportMetaEnvValue = (
+  value: CodeValue,
+  warnings: string[],
+): CodeValue => {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (isImportMetaEnvObject(parsed)) {
+        return value;
+      }
+      warnings.push(
+        'DefinePlugin: "import.meta.env" should be defined as an object or a JSON stringified object.',
+      );
+      return value;
+    } catch {
+      return value;
+    }
+  }
+
+  if (!isImportMetaEnvObject(value)) {
+    warnings.push(
+      'DefinePlugin: "import.meta.env" should be defined as an object or a JSON stringified object.',
+    );
+  }
+  return value;
+};
+
+const isImportMetaEnvObject = (
+  value: unknown,
+): value is Record<string, CodeValue> =>
+  value !== null &&
+  typeof value === 'object' &&
+  !Array.isArray(value) &&
+  !(value instanceof RegExp);
+
 type CodeValue = RecursiveArrayOrRecord<CodeValuePrimitive>;
+type ImportMetaEnvCodeValue = string | Record<string, CodeValue>;
 type CodeValuePrimitive =
   | null
   | undefined

@@ -18,6 +18,7 @@ use crate::{utils::eval::BasicEvaluatedExpression, visitors::JavascriptParser};
 
 static TYPEOF_OPERATOR_REGEXP: LazyLock<Regex> =
   LazyLock::new(|| Regex::new("^typeof\\s+").expect("should init `TYPEOF_OPERATOR_REGEXP`"));
+const IMPORT_META_ENV: &str = "import.meta.env";
 const IMPORT_META_ENV_PREFIX: &str = "import.meta.env.";
 
 type OnEvaluateIdentifier = dyn for<'p> Fn(
@@ -196,6 +197,7 @@ impl ObjectDefineRecord {
 #[derive(Debug, Default)]
 pub struct WalkData {
   pub tiling_definitions: FxHashMap<String, String>,
+  pub has_import_meta_env_object_definition: bool,
   pub import_meta_env_definitions: ImportMetaEnvDefinitions,
   pub diagnostics: Vec<Diagnostic>,
   pub can_rename: FxHashMap<Arc<str>, Option<Arc<str>>>,
@@ -436,6 +438,39 @@ impl WalkData {
         .insert(key, define_record);
     }
 
+    fn json_value_to_define_value(value: Value) -> Value {
+      match value {
+        Value::String(value) => Value::String(json!(value).to_string()),
+        Value::Array(array) => Value::Array(
+          array
+            .into_iter()
+            .map(json_value_to_define_value)
+            .collect_vec(),
+        ),
+        Value::Object(object) => Value::Object(
+          object
+            .into_iter()
+            .map(|(key, value)| (key, json_value_to_define_value(value)))
+            .collect(),
+        ),
+        value => value,
+      }
+    }
+
+    fn collect_import_meta_env_json_object_definition(code: &Value, walk_data: &mut WalkData) {
+      let Value::String(code) = code else {
+        return;
+      };
+      let Ok(Value::Object(object)) = serde_json::from_str::<Value>(code) else {
+        return;
+      };
+      for (key, value) in object {
+        walk_data
+          .import_meta_env_definitions
+          .insert(key, json_value_to_define_value(value));
+      }
+    }
+
     fn walk_code(
       code: &Value,
       prefix: Cow<str>,
@@ -445,6 +480,10 @@ impl WalkData {
     ) {
       let prefix_for_object = || Cow::Owned(format!("{prefix}{key}."));
       let full_key = format!("{prefix}{key}");
+      if full_key == IMPORT_META_ENV {
+        walk_data.has_import_meta_env_object_definition = true;
+        collect_import_meta_env_json_object_definition(code, walk_data);
+      }
       if let Some(env_key) = full_key.strip_prefix(IMPORT_META_ENV_PREFIX) {
         walk_data
           .import_meta_env_definitions
