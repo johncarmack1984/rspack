@@ -74,6 +74,15 @@ fn has_import_meta_env_member_definition(parser: &JavascriptParser, name: &str) 
     || has_import_meta_env_object_definition(parser.compilation_id)
 }
 
+fn import_meta_env_definitions_expression(parser: &JavascriptParser, start: u32) -> String {
+  let definitions = import_meta_env_definitions_string(parser.compilation_id);
+  if parser.is_asi_position(start) {
+    format!(";({definitions})")
+  } else {
+    format!("({definitions})")
+  }
+}
+
 fn create_import_meta_resolve_context_dependency(
   parser: &mut JavascriptParser,
   param: &BasicEvaluatedExpression,
@@ -575,7 +584,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
       add_import_meta_env_value_dependency(parser);
       parser.add_presentational_dependency(Box::new(ConstDependency::new(
         member_expr.span().into(),
-        import_meta_env_definitions_string(parser.compilation_id).into(),
+        import_meta_env_definitions_expression(parser, member_expr.span().real_lo()).into(),
       )));
       Some(true)
     } else if for_name == expr_name::IMPORT_META_VERSION {
@@ -623,7 +632,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
       add_import_meta_env_value_dependency(parser);
       parser.add_presentational_dependency(Box::new(ConstDependency::new(
         expr.span().into(),
-        import_meta_env_definitions_string(parser.compilation_id).into(),
+        import_meta_env_definitions_expression(parser, expr.span().real_lo()).into(),
       )));
       return Some(true);
     }

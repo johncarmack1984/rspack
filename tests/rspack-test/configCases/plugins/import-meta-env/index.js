@@ -54,6 +54,11 @@ it("should treat import.meta.env as truthy", () => {
 	}
 });
 
+it("should wrap import.meta.env object literals in expression context", () => {
+	import.meta.env;
+	expect(import.meta.env && true).toBe(true);
+});
+
 it("should treat import.meta.env.NOT_EXIST as falsy", () => {
 	if (import.meta.env.NOT_EXIST) {
 		throw new Error("import.meta.env should be falsy");
