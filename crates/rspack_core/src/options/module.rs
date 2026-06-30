@@ -294,6 +294,7 @@ pub enum ImportMeta {
   PreserveUnknown,
   Enabled,
   Disabled,
+  Granular(ImportMetaOptions),
 }
 
 impl From<&str> for ImportMeta {
@@ -303,6 +304,88 @@ impl From<&str> for ImportMeta {
       "false" => Self::Disabled,
       _ => Self::Enabled,
     }
+  }
+}
+
+#[cacheable]
+#[derive(Debug, Clone, Copy, Default, MergeFrom)]
+pub struct ImportMetaOptions {
+  pub dirname: Option<bool>,
+  pub env: Option<bool>,
+  pub filename: Option<bool>,
+  pub glob: Option<bool>,
+  pub main: Option<bool>,
+  pub resolve: Option<bool>,
+  pub rspack_base_uri: Option<bool>,
+  pub rspack_hash: Option<bool>,
+  pub rspack_init_sharing: Option<bool>,
+  pub rspack_nonce: Option<bool>,
+  pub rspack_public_path: Option<bool>,
+  pub rspack_rsc: Option<bool>,
+  pub rspack_share_scopes: Option<bool>,
+  pub rspack_unique_id: Option<bool>,
+  pub rspack_version: Option<bool>,
+  pub url: Option<bool>,
+  pub webpack: Option<bool>,
+  pub webpack_context: Option<bool>,
+}
+
+impl ImportMeta {
+  pub fn is_enabled(&self) -> bool {
+    !matches!(self, Self::Disabled)
+  }
+
+  pub fn preserve_unknown(&self) -> bool {
+    matches!(self, Self::PreserveUnknown | Self::Granular(_))
+  }
+
+  pub fn is_property_enabled(&self, property: &str) -> bool {
+    match self {
+      Self::Disabled => false,
+      Self::Enabled | Self::PreserveUnknown => true,
+      Self::Granular(options) => match property {
+        "dirname" => options.dirname,
+        "env" => options.env,
+        "filename" => options.filename,
+        "glob" => options.glob,
+        "main" => options.main,
+        "resolve" => options.resolve,
+        "rspackBaseUri" => options.rspack_base_uri,
+        "rspackHash" => options.rspack_hash,
+        "rspackInitSharing" => options.rspack_init_sharing,
+        "rspackNonce" => options.rspack_nonce,
+        "rspackPublicPath" => options.rspack_public_path,
+        "rspackRsc" => options.rspack_rsc,
+        "rspackShareScopes" => options.rspack_share_scopes,
+        "rspackUniqueId" => options.rspack_unique_id,
+        "rspackVersion" => options.rspack_version,
+        "url" => options.url,
+        "webpack" => options.webpack,
+        "webpackContext" => options.webpack_context,
+        _ => None,
+      }
+      .unwrap_or(true),
+    }
+  }
+
+  pub fn is_name_enabled(&self, name: &str) -> bool {
+    name
+      .strip_prefix("import.meta.")
+      .is_none_or(|property| self.is_property_enabled(property))
+  }
+
+  pub fn is_webpack_context_enabled(&self, import_meta_context: Option<bool>) -> bool {
+    match self {
+      Self::Disabled => false,
+      Self::Granular(options) => options
+        .webpack_context
+        .unwrap_or_else(|| import_meta_context.unwrap_or(true)),
+      Self::Enabled | Self::PreserveUnknown => import_meta_context.unwrap_or(true),
+    }
+  }
+
+  pub fn is_glob_enabled(&self) -> bool {
+    self.is_property_enabled("glob")
   }
 }
 
@@ -326,6 +409,7 @@ pub struct JavascriptParserOptions {
   pub worker: Option<Vec<String>>,
   pub override_strict: Option<OverrideStrict>,
   pub import_meta: Option<ImportMeta>,
+  pub import_meta_context: Option<bool>,
   pub require_alias: Option<bool>,
   pub require_as_expression: Option<bool>,
   pub require_dynamic: Option<bool>,

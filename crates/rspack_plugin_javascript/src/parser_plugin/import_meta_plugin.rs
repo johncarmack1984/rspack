@@ -62,6 +62,45 @@ fn create_import_meta_resolve_context_dependency(
 pub struct ImportMetaPlugin(pub(crate) ImportMeta);
 
 impl ImportMetaPlugin {
+  fn known_import_meta_property(property: &str) -> bool {
+    matches!(
+      property,
+      "dirname"
+        | "env"
+        | "filename"
+        | "glob"
+        | "main"
+        | "resolve"
+        | "rspackBaseUri"
+        | "rspackHash"
+        | "rspackInitSharing"
+        | "rspackNonce"
+        | "rspackPublicPath"
+        | "rspackRsc"
+        | "rspackShareScopes"
+        | "rspackUniqueId"
+        | "rspackVersion"
+        | "url"
+        | "webpack"
+        | "webpackContext"
+        | "webpackHot"
+    )
+  }
+
+  fn preserve_property(&self, property: Option<&str>) -> bool {
+    match self.0 {
+      ImportMeta::PreserveUnknown => true,
+      ImportMeta::Granular(_) => property.is_none_or(|property| {
+        !Self::known_import_meta_property(property) || !self.0.is_property_enabled(property)
+      }),
+      ImportMeta::Enabled | ImportMeta::Disabled => false,
+    }
+  }
+
+  fn property_enabled(&self, property: &str) -> bool {
+    self.0.is_property_enabled(property)
+  }
+
   fn import_meta_url(&self, parser: &JavascriptParser) -> String {
     Url::from_file_path(parser.resource_data.resource())
       .expect("should be a path")
@@ -88,7 +127,7 @@ impl ImportMetaPlugin {
   }
 
   fn import_meta_unknown_property(&self, members: &Vec<String>) -> String {
-    if matches!(self.0, ImportMeta::PreserveUnknown) {
+    if self.preserve_property(members.first().map(|property| property.as_str())) {
       format!("import.meta{}", property_access(members, 0))
     } else {
       format!(
@@ -218,19 +257,25 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     let mut evaluated = None;
     if for_name == expr_name::IMPORT_META {
       evaluated = Some("object".to_string());
-    } else if for_name == expr_name::IMPORT_META_URL {
+    } else if for_name == expr_name::IMPORT_META_URL && self.property_enabled("url") {
       evaluated = Some("string".to_string());
     } else if parser.javascript_options.import_meta_resolve == Some(true)
       && for_name == expr_name::IMPORT_META_RESOLVE
+      && self.property_enabled("resolve")
     {
       evaluated = Some("function".to_string());
-    } else if for_name == expr_name::IMPORT_META_VERSION {
+    } else if for_name == expr_name::IMPORT_META_VERSION && self.property_enabled("webpack") {
       evaluated = Some("number".to_string())
-    } else if for_name == expr_name::IMPORT_META_MAIN {
+    } else if for_name == expr_name::IMPORT_META_MAIN && self.property_enabled("main") {
       evaluated = Some("boolean".to_string())
-    } else if for_name == expr_name::IMPORT_META_RSPACK_RSC && is_rsc_layer(parser) {
+    } else if for_name == expr_name::IMPORT_META_RSPACK_RSC
+      && is_rsc_layer(parser)
+      && self.property_enabled("rspackRsc")
+    {
       evaluated = Some("object".to_string())
-    } else if let Some(api) = import_meta_runtime_api_from_name(for_name) {
+    } else if let Some(api) = import_meta_runtime_api_from_name(for_name)
+      && self.property_enabled(api.property)
+    {
       evaluated = Some(api.type_of.to_string())
     } else if let Some(member_expr) = expr.arg.as_member()
       && let Some(meta_expr) = member_expr.obj.as_meta_prop()
@@ -242,6 +287,20 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         MemberProp::Computed(computed) => computed.expr.is_lit(),
         _ => false,
       })
+      && member_expr
+        .prop
+        .as_ident()
+        .map(|ident| !self.preserve_property(Some(ident.sym.as_ref())))
+        .or_else(|| {
+          member_expr
+            .prop
+            .as_computed()
+            .and_then(|computed| computed.expr.as_lit())
+            .and_then(|lit| lit.as_str())
+            .and_then(|str_lit| str_lit.value.as_str())
+            .map(|value| !self.preserve_property(Some(value)))
+        })
+        .unwrap_or(false)
     {
       evaluated = Some("undefined".to_string())
     }
@@ -256,9 +315,9 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     start: u32,
     end: u32,
   ) -> Option<eval::BasicEvaluatedExpression<'p>> {
-    if for_name == expr_name::IMPORT_META_VERSION {
+    if for_name == expr_name::IMPORT_META_VERSION && self.property_enabled("webpack") {
       Some(eval::evaluate_to_number(5_f64, start, end))
-    } else if for_name == expr_name::IMPORT_META_URL {
+    } else if for_name == expr_name::IMPORT_META_URL && self.property_enabled("url") {
       Some(eval::evaluate_to_string(
         self.import_meta_url(parser),
         start,
@@ -266,6 +325,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
       ))
     } else if parser.javascript_options.import_meta_resolve == Some(true)
       && for_name == expr_name::IMPORT_META_RESOLVE
+      && self.property_enabled("resolve")
     {
       Some(eval::evaluate_to_identifier(
         expr_name::IMPORT_META_RESOLVE.into(),
@@ -294,9 +354,13 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         // - Skip `main` - it will generate dynamic code: `moduleCache[entryModuleId] === module`
         if ident.sym == "dirname"
           || ident.sym == "filename"
-          || ident.sym == "main"
-          || (ident.sym == "rspackRsc" && is_rsc_layer(parser))
-          || import_meta_runtime_api_from_property(ident.sym.as_ref()).is_some()
+          || (ident.sym == "main" && self.property_enabled("main"))
+          || (ident.sym == "rspackRsc"
+            && is_rsc_layer(parser)
+            && self.property_enabled("rspackRsc"))
+          || import_meta_runtime_api_from_property(ident.sym.as_ref())
+            .is_some_and(|api| self.property_enabled(api.property))
+          || self.preserve_property(Some(ident.sym.as_ref()))
         {
           return None;
         }
@@ -311,9 +375,13 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
           && str_lit.value.as_str().is_some_and(|value| {
             value == "dirname"
               || value == "filename"
-              || value == "main"
-              || (value == "rspackRsc" && is_rsc_layer(parser))
-              || import_meta_runtime_api_from_property(value).is_some()
+              || (value == "main" && self.property_enabled("main"))
+              || (value == "rspackRsc"
+                && is_rsc_layer(parser)
+                && self.property_enabled("rspackRsc"))
+              || import_meta_runtime_api_from_property(value)
+                .is_some_and(|api| self.property_enabled(api.property))
+              || self.preserve_property(Some(value))
           })
         {
           return None;
@@ -340,6 +408,9 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         Some(true)
       }
       expr_name::IMPORT_META_URL => {
+        if !self.property_enabled("url") {
+          return None;
+        }
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
           unary_expr.span().into(),
           "'string'".into(),
@@ -347,7 +418,8 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         Some(true)
       }
       expr_name::IMPORT_META_RESOLVE
-        if parser.javascript_options.import_meta_resolve == Some(true) =>
+        if parser.javascript_options.import_meta_resolve == Some(true)
+          && self.property_enabled("resolve") =>
       {
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
           unary_expr.span().into(),
@@ -356,6 +428,9 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         Some(true)
       }
       expr_name::IMPORT_META_VERSION => {
+        if !self.property_enabled("webpack") {
+          return None;
+        }
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
           unary_expr.span().into(),
           "'number'".into(),
@@ -363,6 +438,9 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         Some(true)
       }
       expr_name::IMPORT_META_MAIN => {
+        if !self.property_enabled("main") {
+          return None;
+        }
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
           unary_expr.span().into(),
           "'boolean'".into(),
@@ -371,6 +449,9 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
       }
       _ => {
         let api = import_meta_runtime_api_from_name(for_name)?;
+        if !self.property_enabled(api.property) {
+          return None;
+        }
         parser.add_presentational_dependency(Box::new(ConstDependency::new(
           unary_expr.span().into(),
           format!("'{}'", api.type_of).into(),
@@ -415,19 +496,24 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
             content.push(property);
             continue;
           }
-          if prop.id == "url" {
+          if prop.id == "url" && self.property_enabled("url") {
             content.push(format!(r#"url: "{}""#, self.import_meta_url(parser)))
-          } else if prop.id == "webpack" {
+          } else if prop.id == "webpack" && self.property_enabled("webpack") {
             content.push(format!(r#"webpack: {}"#, self.import_meta_version()));
-          } else if prop.id == "main" {
+          } else if prop.id == "main" && self.property_enabled("main") {
             content.push(format!("main: {}", self.import_meta_main(parser)));
-          } else if prop.id == "rspackRsc" && is_rsc_layer(parser) {
+          } else if prop.id == "rspackRsc"
+            && is_rsc_layer(parser)
+            && self.property_enabled("rspackRsc")
+          {
             content.push(format!(
               "rspackRsc: {}",
               self.process_rspack_rsc_destructuring(parser, span)
             ));
           } else if let Some(api) = import_meta_runtime_api_from_property(prop.id.as_ref()) {
-            if let Some(property) = render_import_meta_runtime_api_destructuring(parser, api) {
+            if self.property_enabled(api.property)
+              && let Some(property) = render_import_meta_runtime_api_destructuring(parser, api)
+            {
               content.push(property);
             } else {
               content.push(format!(
@@ -483,21 +569,21 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
     member_expr: &MemberExpr,
     for_name: &str,
   ) -> Option<bool> {
-    if for_name == expr_name::IMPORT_META_URL {
+    if for_name == expr_name::IMPORT_META_URL && self.property_enabled("url") {
       // import.meta.url
       parser.add_presentational_dependency(Box::new(ConstDependency::new(
         member_expr.span().into(),
         format!("'{}'", self.import_meta_url(parser)).into(),
       )));
       Some(true)
-    } else if for_name == expr_name::IMPORT_META_VERSION {
+    } else if for_name == expr_name::IMPORT_META_VERSION && self.property_enabled("webpack") {
       // import.meta.webpack
       parser.add_presentational_dependency(Box::new(ConstDependency::new(
         member_expr.span().into(),
         self.import_meta_version().into(),
       )));
       Some(true)
-    } else if for_name == expr_name::IMPORT_META_MAIN {
+    } else if for_name == expr_name::IMPORT_META_MAIN && self.property_enabled("main") {
       // import.meta.main
       let content = self.import_meta_main(parser);
       parser.add_presentational_dependency(Box::new(ConstDependency::new(
@@ -505,10 +591,15 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
         content.into(),
       )));
       Some(true)
-    } else if for_name == expr_name::IMPORT_META_RSPACK_RSC && is_rsc_layer(parser) {
+    } else if for_name == expr_name::IMPORT_META_RSPACK_RSC
+      && is_rsc_layer(parser)
+      && self.property_enabled("rspackRsc")
+    {
       self.process_rspack_rsc(parser, member_expr);
       Some(true)
-    } else if let Some(api) = import_meta_runtime_api_from_name(for_name) {
+    } else if let Some(api) = import_meta_runtime_api_from_name(for_name)
+      && self.property_enabled(api.property)
+    {
       import_meta_runtime_api_member(parser, member_expr.span(), api)
     } else {
       None
@@ -523,11 +614,15 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
   ) -> Option<bool> {
     if parser.javascript_options.import_meta_resolve == Some(true)
       && for_name == expr_name::IMPORT_META_RESOLVE
+      && self.property_enabled("resolve")
     {
       self.process_import_meta_resolve(parser, call_expr);
       return Some(true);
     }
     if let Some(api) = import_meta_runtime_api_from_name(for_name) {
+      if !self.property_enabled(api.property) {
+        return None;
+      }
       return import_meta_runtime_api_call(parser, call_expr, api);
     }
     None
@@ -545,6 +640,9 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for ImportMetaPlugin {
       return None;
     }
     let property = members.first()?;
+    if !self.property_enabled(property.as_ref()) {
+      return None;
+    }
     let api = import_meta_runtime_api_from_property(property.as_ref())?;
     let full_assignment = members.len() == 1;
     let span = if full_assignment {

@@ -476,16 +476,18 @@ impl<'parser> JavascriptParser<'parser> {
     if module_type.is_js_auto() || module_type.is_js_esm() {
       plugins.push(Box::new(parser_plugin::ESMTopLevelThisParserPlugin));
       plugins.push(Box::<parser_plugin::ESMDetectionParserPlugin>::default());
+      let import_meta = javascript_options
+        .import_meta
+        .unwrap_or(ImportMeta::Enabled);
       plugins.push(Box::new(
-        parser_plugin::ImportMetaContextDependencyParserPlugin,
+        parser_plugin::ImportMetaContextDependencyParserPlugin {
+          webpack_context: import_meta
+            .is_webpack_context_enabled(javascript_options.import_meta_context),
+          glob: import_meta.is_glob_enabled(),
+        },
       ));
-      if matches!(
-        javascript_options.import_meta,
-        Some(ImportMeta::Enabled | ImportMeta::PreserveUnknown)
-      ) {
-        plugins.push(Box::new(parser_plugin::ImportMetaPlugin(
-          javascript_options.import_meta.expect("should have value"),
-        )));
+      if import_meta.is_enabled() {
+        plugins.push(Box::new(parser_plugin::ImportMetaPlugin(import_meta)));
       } else {
         plugins.push(Box::new(parser_plugin::ImportMetaDisabledPlugin));
       }

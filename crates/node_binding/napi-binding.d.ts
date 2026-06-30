@@ -2424,6 +2424,27 @@ export interface RawIgnorePluginOptions {
   checkResource?: (resource: string, context: string) => boolean
 }
 
+export interface RawImportMetaOptions {
+  dirname?: boolean
+  env?: boolean
+  filename?: boolean
+  glob?: boolean
+  main?: boolean
+  resolve?: boolean
+  rspackBaseUri?: boolean
+  rspackHash?: boolean
+  rspackInitSharing?: boolean
+  rspackNonce?: boolean
+  rspackPublicPath?: boolean
+  rspackRsc?: boolean
+  rspackShareScopes?: boolean
+  rspackUniqueId?: boolean
+  rspackVersion?: boolean
+  url?: boolean
+  webpack?: boolean
+  webpackContext?: boolean
+}
+
 export interface RawIncremental {
   silent: boolean
   buildModuleGraph: boolean
@@ -2490,7 +2511,8 @@ export interface RawJavascriptParserOptions {
   reexportExportsPresence?: string
   worker?: Array<string>
   overrideStrict?: string
-  importMeta?: string
+  importMeta?: string | RawImportMetaOptions
+  importMetaContext?: boolean
   commonjsMagicComments?: boolean
   createRequire?: boolean | string
 commonjs?: boolean | { exports?: boolean | 'skipInEsm' }

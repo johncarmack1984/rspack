@@ -606,6 +606,7 @@ function getRawJavascriptParserOptions(
       typeof parser.importMeta === 'boolean'
         ? String(parser.importMeta)
         : parser.importMeta,
+    importMetaContext: parser.importMetaContext,
     url: parser.url?.toString(),
     exprContextCritical: parser.exprContextCritical,
     unknownContextCritical: parser.unknownContextCritical,

@@ -48,6 +48,13 @@ impl NodeMetaProperty {
     }
   }
 
+  fn import_meta_property(&self) -> &'static str {
+    match self {
+      NodeMetaProperty::Filename => "filename",
+      NodeMetaProperty::Dirname => "dirname",
+    }
+  }
+
   /// Returns the CJS equivalent variable name
   fn cjs_name(&self) -> &'static str {
     match self {
@@ -142,6 +149,14 @@ impl NodeMetaProperty {
       NodeMetaProperty::Dirname => matches!(node_option.dirname, NodeDirnameOption::NodeModule),
     }
   }
+}
+
+fn import_meta_property_enabled(parser: &JavascriptParser, property: NodeMetaProperty) -> bool {
+  parser
+    .javascript_options
+    .import_meta
+    .unwrap_or(ImportMeta::Enabled)
+    .is_property_enabled(property.import_meta_property())
 }
 
 /// Plugin for handling Node.js-specific variables like `__dirname`, `__filename`, `global`,
@@ -647,11 +662,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
         if !self.handle_esm {
           return None;
         }
-        // Skip if importMeta is disabled
-        if matches!(
-          parser.javascript_options.import_meta,
-          Some(ImportMeta::Disabled)
-        ) {
+        if !import_meta_property_enabled(parser, NodeMetaProperty::Filename) {
           return None;
         }
         // Skip if node: false or node.filename is disabled
@@ -686,11 +697,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
         if !self.handle_esm {
           return None;
         }
-        // Skip if importMeta is disabled
-        if matches!(
-          parser.javascript_options.import_meta,
-          Some(ImportMeta::Disabled)
-        ) {
+        if !import_meta_property_enabled(parser, NodeMetaProperty::Dirname) {
           return None;
         }
         // Skip if node: false or node.dirname is disabled
@@ -724,11 +731,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
 
     match for_name {
       expr_name::IMPORT_META_FILENAME => {
-        // Skip processing if importMeta is disabled
-        if matches!(
-          parser.javascript_options.import_meta,
-          Some(ImportMeta::Disabled)
-        ) {
+        if !import_meta_property_enabled(parser, NodeMetaProperty::Filename) {
           return None;
         }
         // Skip processing if node: false or node.filename is disabled
@@ -748,11 +751,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
         ))
       }
       expr_name::IMPORT_META_DIRNAME => {
-        // Skip processing if importMeta is disabled
-        if matches!(
-          parser.javascript_options.import_meta,
-          Some(ImportMeta::Disabled)
-        ) {
+        if !import_meta_property_enabled(parser, NodeMetaProperty::Dirname) {
           return None;
         }
         // Skip processing if node: false or node.dirname is disabled
@@ -833,18 +832,14 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
       if !self.handle_esm {
         return None;
       }
-      // Skip processing if importMeta is disabled
-      if matches!(
-        parser.javascript_options.import_meta,
-        Some(ImportMeta::Disabled)
-      ) {
-        return None;
-      }
       let property = if for_name == expr_name::IMPORT_META_FILENAME {
         NodeMetaProperty::Filename
       } else {
         NodeMetaProperty::Dirname
       };
+      if !import_meta_property_enabled(parser, property) {
+        return None;
+      }
       let value = Self::get_import_meta_eval_value(parser, property)?;
       Some(eval::evaluate_to_string(value, start, end))
     } else {
@@ -871,11 +866,7 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
       _ => return None,
     };
 
-    // Skip processing if importMeta is disabled
-    if matches!(
-      parser.javascript_options.import_meta,
-      Some(ImportMeta::Disabled)
-    ) {
+    if !import_meta_property_enabled(parser, property) {
       return None;
     }
 
@@ -897,19 +888,14 @@ impl<'p, 'a> JavascriptParserPlugin<'p, 'a> for NodeStuffPlugin {
       return None;
     }
 
-    // Skip processing if importMeta is disabled
-    if matches!(
-      parser.javascript_options.import_meta,
-      Some(ImportMeta::Disabled)
-    ) {
-      return None;
-    }
-
     let meta_property = match property.id.as_str() {
       "filename" => NodeMetaProperty::Filename,
       "dirname" => NodeMetaProperty::Dirname,
       _ => return None,
     };
+    if !import_meta_property_enabled(parser, meta_property) {
+      return None;
+    }
 
     let value = Self::get_import_meta_destructuring_value(parser, meta_property)?;
     Some(format!("{}: {value}", property.id))

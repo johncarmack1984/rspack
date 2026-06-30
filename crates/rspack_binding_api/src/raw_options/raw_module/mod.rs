@@ -19,12 +19,13 @@ use rspack_core::{
   CssAutoOrModuleParserOptions, CssGeneratorOptions, CssModuleGeneratorOptions,
   CssModuleParserOptions, CssParserImport, CssParserImportContext, CssParserOptions,
   DescriptionData, DynamicImportFetchPriority, DynamicImportMode, ExportPresenceMode, FuncUseCtx,
-  GeneratorOptions, GeneratorOptionsMap, ImportMeta, JavascriptParserCommonjsExportsOption,
-  JavascriptParserCommonjsOptions, JavascriptParserCreateRequire, JavascriptParserOptions,
-  JavascriptParserOrder, JavascriptParserUrl, JsonGeneratorOptions, JsonParserOptions,
-  ModuleNoParseRule, ModuleNoParseRules, ModuleNoParseTestFn, ModuleOptions, ModuleRule,
-  ModuleRuleEffect, ModuleRuleEnforce, ModuleRuleUse, ModuleRuleUseLoader, OverrideStrict,
-  ParseOption, ParserOptions, ParserOptionsMap, TypeReexportPresenceMode,
+  GeneratorOptions, GeneratorOptionsMap, ImportMeta, ImportMetaOptions,
+  JavascriptParserCommonjsExportsOption, JavascriptParserCommonjsOptions,
+  JavascriptParserCreateRequire, JavascriptParserOptions, JavascriptParserOrder,
+  JavascriptParserUrl, JsonGeneratorOptions, JsonParserOptions, ModuleNoParseRule,
+  ModuleNoParseRules, ModuleNoParseTestFn, ModuleOptions, ModuleRule, ModuleRuleEffect,
+  ModuleRuleEnforce, ModuleRuleUse, ModuleRuleUseLoader, OverrideStrict, ParseOption,
+  ParserOptions, ParserOptionsMap, TypeReexportPresenceMode,
 };
 use rspack_error::error;
 use rspack_regex::RspackRegex;
@@ -297,7 +298,9 @@ pub struct RawJavascriptParserOptions {
   pub reexport_exports_presence: Option<String>,
   pub worker: Option<Vec<String>>,
   pub override_strict: Option<String>,
-  pub import_meta: Option<String>,
+  #[napi(ts_type = "string | RawImportMetaOptions")]
+  pub import_meta: Option<Either<String, RawImportMetaOptions>>,
+  pub import_meta_context: Option<bool>,
   pub commonjs_magic_comments: Option<bool>,
   #[napi(ts_type = "boolean | string")]
   pub create_require: Option<Either<bool, String>>,
@@ -335,6 +338,54 @@ pub struct RawJavascriptParserOptions {
   /// @experimental
   #[napi(js_name = "pureFunctions")]
   pub pure_functions: Option<Vec<String>>,
+}
+
+#[napi(object)]
+#[derive(Debug, Default)]
+pub struct RawImportMetaOptions {
+  pub dirname: Option<bool>,
+  pub env: Option<bool>,
+  pub filename: Option<bool>,
+  pub glob: Option<bool>,
+  pub main: Option<bool>,
+  pub resolve: Option<bool>,
+  pub rspack_base_uri: Option<bool>,
+  pub rspack_hash: Option<bool>,
+  pub rspack_init_sharing: Option<bool>,
+  pub rspack_nonce: Option<bool>,
+  pub rspack_public_path: Option<bool>,
+  pub rspack_rsc: Option<bool>,
+  pub rspack_share_scopes: Option<bool>,
+  pub rspack_unique_id: Option<bool>,
+  pub rspack_version: Option<bool>,
+  pub url: Option<bool>,
+  pub webpack: Option<bool>,
+  pub webpack_context: Option<bool>,
+}
+
+impl From<RawImportMetaOptions> for ImportMetaOptions {
+  fn from(value: RawImportMetaOptions) -> Self {
+    Self {
+      dirname: value.dirname,
+      env: value.env,
+      filename: value.filename,
+      glob: value.glob,
+      main: value.main,
+      resolve: value.resolve,
+      rspack_base_uri: value.rspack_base_uri,
+      rspack_hash: value.rspack_hash,
+      rspack_init_sharing: value.rspack_init_sharing,
+      rspack_nonce: value.rspack_nonce,
+      rspack_public_path: value.rspack_public_path,
+      rspack_rsc: value.rspack_rsc,
+      rspack_share_scopes: value.rspack_share_scopes,
+      rspack_unique_id: value.rspack_unique_id,
+      rspack_version: value.rspack_version,
+      url: value.url,
+      webpack: value.webpack,
+      webpack_context: value.webpack_context,
+    }
+  }
 }
 
 #[napi(object)]
@@ -388,7 +439,11 @@ impl From<RawJavascriptParserOptions> for JavascriptParserOptions {
       override_strict: value
         .override_strict
         .map(|e| OverrideStrict::from(e.as_str())),
-      import_meta: value.import_meta.map(|e| ImportMeta::from(e.as_str())),
+      import_meta: value.import_meta.map(|e| match e {
+        Either::A(value) => ImportMeta::from(value.as_str()),
+        Either::B(value) => ImportMeta::Granular(value.into()),
+      }),
+      import_meta_context: value.import_meta_context,
       require_alias: value.require_alias,
       require_as_expression: value.require_as_expression,
       require_dynamic: value.require_dynamic,
