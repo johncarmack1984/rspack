@@ -79,13 +79,6 @@ export interface Asset {
   info: AssetInfo;
 }
 
-export type ChunkPathData = {
-  id?: string | number;
-  name?: string;
-  hash?: string;
-  contentHash?: Record<string, string>;
-};
-
 export type PathData = {
   filename?: string;
   hash?: string;
@@ -93,7 +86,7 @@ export type PathData = {
   runtime?: string;
   url?: string;
   id?: string | number;
-  chunk?: Chunk | ChunkPathData;
+  chunk?: Chunk;
   contentHashType?: string;
 };
 
@@ -111,11 +104,7 @@ function normalizePathData(data: PathData = {}): JsPathData {
   }
 
   if (data.chunk) {
-    pathData.chunk = {
-      id: data.chunk.id !== undefined ? String(data.chunk.id) : undefined,
-      name: data.chunk.name,
-      hash: data.chunk.hash,
-    };
+    pathData.chunk = data.chunk;
   }
 
   return pathData;
