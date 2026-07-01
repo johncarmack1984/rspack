@@ -2775,7 +2775,7 @@ dependencies = [
 [[package]]
 name = "napi"
 version = "3.9.4"
-source = "git+https://github.com/intellild/napi-rs.git?rev=a28a3b5881af12838d088e010c99979c1717009a#a28a3b5881af12838d088e010c99979c1717009a"
+source = "git+https://github.com/intellild/napi-rs.git?rev=1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16#1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16"
 dependencies = [
  "anyhow",
  "bitflags 2.11.1",
@@ -2793,12 +2793,12 @@ dependencies = [
 [[package]]
 name = "napi-build"
 version = "2.3.2"
-source = "git+https://github.com/intellild/napi-rs.git?rev=a28a3b5881af12838d088e010c99979c1717009a#a28a3b5881af12838d088e010c99979c1717009a"
+source = "git+https://github.com/intellild/napi-rs.git?rev=1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16#1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16"
 
 [[package]]
 name = "napi-derive"
 version = "3.5.7"
-source = "git+https://github.com/intellild/napi-rs.git?rev=a28a3b5881af12838d088e010c99979c1717009a#a28a3b5881af12838d088e010c99979c1717009a"
+source = "git+https://github.com/intellild/napi-rs.git?rev=1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16#1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16"
 dependencies = [
  "convert_case 0.11.0",
  "ctor 1.0.7",
@@ -2811,7 +2811,7 @@ dependencies = [
 [[package]]
 name = "napi-derive-backend"
 version = "5.0.5"
-source = "git+https://github.com/intellild/napi-rs.git?rev=a28a3b5881af12838d088e010c99979c1717009a#a28a3b5881af12838d088e010c99979c1717009a"
+source = "git+https://github.com/intellild/napi-rs.git?rev=1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16#1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro2",
@@ -2823,7 +2823,7 @@ dependencies = [
 [[package]]
 name = "napi-sys"
 version = "3.2.2"
-source = "git+https://github.com/intellild/napi-rs.git?rev=a28a3b5881af12838d088e010c99979c1717009a#a28a3b5881af12838d088e010c99979c1717009a"
+source = "git+https://github.com/intellild/napi-rs.git?rev=1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16#1890259ea26d9fe3c50b7c4c67a14d5cadbe8e16"
 dependencies = [
  "libloading",
 ]
